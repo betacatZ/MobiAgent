@@ -6,7 +6,17 @@ from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 from tqdm import tqdm
+import yaml
 from tester import Qwen3VLTester
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    # config
+    parser.add_argument("--config", "-c", type=str, default=None, help="path to config.yaml")
+    parser.add_argument("--output", type=str, default="./output")
+    args = parser.parse_args()
+    return args
 
 
 def _normalize_bbox(bbox: List[float], img_size: Tuple[int, int]) -> List[float]:
@@ -17,118 +27,129 @@ def _normalize_bbox(bbox: List[float], img_size: Tuple[int, int]) -> List[float]
     return [x / W, y / H, x2 / W, y2 / H]
 
 
-def evaluate(tester, dataset_path: str, task: str) -> Dict:
-    tasks = ["mobile", "desktop", "web"] if task == "all" else [task]
-
-    tasks_result: List[List[float]] = []
+def evaluate(tester, dataset_path: str, task: str) -> Tuple[Dict[str, float], List[Dict]]:
+    tasks_result: Dict[str, float] = {}
     results: List[Dict] = []
 
-    for t in tasks:
-        dataset_file = os.path.join(dataset_path, f"screenspot_{t}_v2.json")
-        with open(dataset_file, "r") as f:
-            screenspot_data = json.load(f)
+    dataset_file = os.path.join(dataset_path, f"screenspot_{task}_v2.json")
+    with open(dataset_file, "r") as f:
+        screenspot_data = json.load(f)
 
-        num_action = 0
-        corr_action = 0
-        text_correct: List[int] = []
-        icon_correct: List[int] = []
-        num_wrong_format = 0
+    num_action = 0
+    corr_action = 0
+    text_correct: List[int] = []
+    icon_correct: List[int] = []
+    num_wrong_format = 0
 
-        for j, item in tqdm(enumerate(screenspot_data), total=len(screenspot_data)):
-            num_action += 1
+    for j, item in tqdm(enumerate(screenspot_data), total=len(screenspot_data)):
+        num_action += 1
 
-            filename = item["img_filename"]
-            img_path = os.path.join(dataset_path, "screenspotv2_image", filename)
-            if not os.path.exists(img_path):
-                logging.info("img not found: %s", img_path)
-                num_wrong_format += 1
-                if item["data_type"] == "text":
-                    text_correct.append(0)
-                else:
-                    icon_correct.append(0)
-                continue
-
-            image = Image.open(img_path)
-            instruction = item["instruction"]
-            bbox_norm = _normalize_bbox(item["bbox"], image.size)
-
-            click_point: Optional[Tuple[float, float]] = tester.generate_click_coordinate(instruction, image)
-            if click_point is None:
-                num_wrong_format += 1
-                if item["data_type"] == "text":
-                    text_correct.append(0)
-                else:
-                    icon_correct.append(0)
-                tqdm.write("Step: %s wrong format" % str(j))
-                continue
-
-            x1, y1, x2, y2 = bbox_norm
-            if x1 <= click_point[0] <= x2 and y1 <= click_point[1] <= y2:
-                corr_action += 1
-                if item["data_type"] == "text":
-                    text_correct.append(1)
-                else:
-                    icon_correct.append(1)
-                tqdm.write("match %.6f" % (corr_action / max(num_action, 1)))
+        filename = item["img_filename"]
+        img_path = os.path.join(dataset_path, "screenspotv2_image", filename)
+        if not os.path.exists(img_path):
+            logging.info("img not found: %s", img_path)
+            num_wrong_format += 1
+            if item["data_type"] == "text":
+                text_correct.append(0)
             else:
-                if item["data_type"] == "text":
-                    text_correct.append(0)
-                else:
-                    icon_correct.append(0)
-                tqdm.write("unmatch %.6f" % (corr_action / max(num_action, 1)))
+                icon_correct.append(0)
+            continue
 
-            results.append(
-                {
-                    "img_path": img_path,
-                    "text": instruction,
-                    "bbox": bbox_norm,
-                    "pred": [click_point[0], click_point[1]],
-                    "type": item["data_type"],
-                    "source": item["data_source"],
-                }
-            )
+        image = Image.open(img_path)
+        instruction = item["instruction"]
+        bbox_norm = _normalize_bbox(item["bbox"], image.size)
 
-        logging.info("Action Acc: %.6f", corr_action / max(num_action, 1))
-        logging.info("Total num: %d", num_action)
-        logging.info("Wrong format num: %d", num_wrong_format)
-        text_acc = sum(text_correct) / len(text_correct) if len(text_correct) != 0 else 0.0
-        icon_acc = sum(icon_correct) / len(icon_correct) if len(icon_correct) != 0 else 0.0
-        logging.info("Text Acc: %.6f", text_acc)
-        logging.info("Icon Acc: %.6f", icon_acc)
+        click_point: Optional[Tuple[float, float]] = tester.generate_click_coordinate(instruction, image)
+        if click_point is None:
+            num_wrong_format += 1
+            if item["data_type"] == "text":
+                text_correct.append(0)
+            else:
+                icon_correct.append(0)
+            tqdm.write("Step: %s wrong format" % str(j))
+            continue
 
-        tasks_result.append([text_acc, icon_acc])
+        x1, y1, x2, y2 = bbox_norm
+        correct = x1 <= click_point[0] <= x2 and y1 <= click_point[1] <= y2
+        if correct:
+            corr_action += 1
+            if item["data_type"] == "text":
+                text_correct.append(1)
+            else:
+                icon_correct.append(1)
+            tqdm.write("match %.6f" % (corr_action / max(num_action, 1)))
+        else:
+            if item["data_type"] == "text":
+                text_correct.append(0)
+            else:
+                icon_correct.append(0)
+            tqdm.write("unmatch %.6f" % (corr_action / max(num_action, 1)))
 
-    return {"tasks_result": tasks_result, "results": results}
+        results.append(
+            {
+                "img_path": img_path,
+                "text": instruction,
+                "bbox": bbox_norm,
+                "pred": [click_point[0], click_point[1]],
+                "type": item["data_type"],
+                "source": item["data_source"],
+                "correct": correct,
+            }
+        )
+    action_acc = corr_action / max(num_action, 1)
+    logging.info("Action Acc: %.6f", action_acc)
+    logging.info("Total num: %d", num_action)
+    logging.info("Wrong format num: %d", num_wrong_format)
+    text_acc = sum(text_correct) / len(text_correct) if len(text_correct) != 0 else 0.0
+    icon_acc = sum(icon_correct) / len(icon_correct) if len(icon_correct) != 0 else 0.0
+    logging.info("Text Acc: %.6f", text_acc)
+    logging.info("Icon Acc: %.6f", icon_acc)
+
+    tasks_result["action_acc"] = action_acc
+    tasks_result["text_acc"] = text_acc
+    tasks_result["icon_acc"] = icon_acc
+    tasks_result["total_num"] = num_action
+    tasks_result["wrong_format_num"] = num_wrong_format
+    return tasks_result, results
 
 
-def run(tester, model_path: str, dataset_path: str, task: str, output: str) -> Dict:
-    out = evaluate(tester, dataset_path, task)
-    model = os.path.basename(model_path)
-    output_json = os.path.join(output, model, f"screenspot_v2_{task}_results.json")
-    os.makedirs(os.path.dirname(output_json), exist_ok=True)
-    with open(output_json, "w") as f:
-        json.dump(out, f)
-    return out
+def run(tester, dataset_path: str, task: str, output: str):
+    tasks = ["mobile", "desktop", "web"] if task == "all" else [task]
+    for t in tasks:
+        tasks_result, results = evaluate(tester, dataset_path, t)
+        output_json = os.path.join(output, f"screenspot_v2_{t}_result.json")
+        output_detail_json = os.path.join(output, f"screenspot_v2_{t}_detail.json")
+        os.makedirs(os.path.dirname(output_json), exist_ok=True)
+        with open(output_json, "w") as f:
+            json.dump(tasks_result, f, ensure_ascii=False, indent=4)
+        with open(output_detail_json, "w") as f:
+            json.dump(results, f, ensure_ascii=False, indent=4)
+
+
+def load_config(path: str):
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="model name, e.g., qwen3vl")
-    parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--dataset_path", type=str, required=True)
-    parser.add_argument("--task", type=str, required=True, help="mobile|desktop|web|all")
-    parser.add_argument("--output", type=str, default="./output")
-    args = parser.parse_args()
+    args = parse_args()
+    cfg = load_config(args.config)
 
-    if args.model.lower() == "qwen3vl":
-        tester = Qwen3VLTester(args.model_path)
+    for key in ["model", "model_path", "dataset_path", "task"]:
+        assert cfg.get(key) is not None, f"{key} must be specified in config"
+
+    if cfg["model"].lower() == "qwen3vl":
+        tester = Qwen3VLTester(cfg["model_path"])
     else:
-        raise ValueError(f"Unknown model: {args.model}")
+        raise ValueError(f"Unknown model: {cfg['model']}")
+    model = os.path.basename(cfg["model_path"])
+    output_path = os.path.join(args.output, model)
+    run(tester, cfg["dataset_path"], cfg["task"], output_path)
 
-    out = run(tester, args.model_path, args.dataset_path, args.task, args.output)
-    logging.info("Tasks Result: %s", out["tasks_result"])
+    with open(os.path.join(output_path, "config.yaml"), "w") as f:
+        yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
 
 
 if __name__ == "__main__":

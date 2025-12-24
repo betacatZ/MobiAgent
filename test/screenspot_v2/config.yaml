@@ -1,0 +1,6 @@
+# Screenspot v2 evaluation config (example)
+desc: Evaluate Qwen3VL model on Screenspot v2 dataset
+model: qwen3vl
+model_path: /path/to/qwen3vl
+dataset_path: /path/to/dataset
+task: mobile # mobile|desktop|web|all
