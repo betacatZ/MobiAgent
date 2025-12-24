@@ -34,7 +34,7 @@ def evaluate(tester, dataset_path: str, task: str) -> Dict:
         icon_correct: List[int] = []
         num_wrong_format = 0
 
-        for j, item in tqdm(enumerate(screenspot_data)):
+        for j, item in tqdm(enumerate(screenspot_data), total=len(screenspot_data)):
             num_action += 1
 
             filename = item["img_filename"]
