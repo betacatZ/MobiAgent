@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 from tqdm import tqdm
+from tester import Qwen3VLTester
 
 
 def _normalize_bbox(bbox: List[float], img_size: Tuple[int, int]) -> List[float]:
@@ -57,7 +59,7 @@ def evaluate(tester, dataset_path: str, task: str) -> Dict:
                     text_correct.append(0)
                 else:
                     icon_correct.append(0)
-                logging.info("Step: %s wrong format", str(j))
+                tqdm.write("Step: %s wrong format" % str(j))
                 continue
 
             x1, y1, x2, y2 = bbox_norm
@@ -67,13 +69,13 @@ def evaluate(tester, dataset_path: str, task: str) -> Dict:
                     text_correct.append(1)
                 else:
                     icon_correct.append(1)
-                logging.info("match %.6f", corr_action / max(num_action, 1))
+                tqdm.write("match %.6f" % (corr_action / max(num_action, 1)))
             else:
                 if item["data_type"] == "text":
                     text_correct.append(0)
                 else:
                     icon_correct.append(0)
-                logging.info("unmatch %.6f", corr_action / max(num_action, 1))
+                tqdm.write("unmatch %.6f" % (corr_action / max(num_action, 1)))
 
             results.append(
                 {
@@ -105,3 +107,27 @@ def run(tester, dataset_path: str, task: str, output: Optional[str] = None) -> D
         with open(output, "w") as f:
             json.dump(out, f)
     return out
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True, help="model name, e.g., qwen3vl")
+    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--dataset_path", type=str, required=True)
+    parser.add_argument("--task", type=str, required=True, help="mobile|desktop|web|all")
+    parser.add_argument("--output", type=str, default=None)
+    args = parser.parse_args()
+
+    if args.model.lower() == "qwen3vl":
+        tester = Qwen3VLTester(args.model_path)
+    else:
+        raise ValueError(f"Unknown model: {args.model}")
+
+    out = run(tester, args.dataset_path, args.task, args.output)
+    logging.info("Tasks Result: %s", out["tasks_result"])
+
+
+if __name__ == "__main__":
+    main()
