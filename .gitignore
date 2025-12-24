@@ -26,3 +26,4 @@ runner/HarmonyOS-mobiagent/
 runner/UI-TARS-agent/data_uitars-test/
 tasks/
 utils/experience/templates-new-bak.json
+.vscode
