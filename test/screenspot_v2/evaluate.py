@@ -101,11 +101,13 @@ def evaluate(tester, dataset_path: str, task: str) -> Dict:
     return {"tasks_result": tasks_result, "results": results}
 
 
-def run(tester, dataset_path: str, task: str, output: Optional[str] = None) -> Dict:
+def run(tester, model_path: str, dataset_path: str, task: str, output: str) -> Dict:
     out = evaluate(tester, dataset_path, task)
-    if output:
-        with open(output, "w") as f:
-            json.dump(out, f)
+    model = os.path.basename(model_path)
+    output_json = os.path.join(output, model, f"screenspot_v2_{task}_results.json")
+    os.makedirs(os.path.dirname(output_json), exist_ok=True)
+    with open(output_json, "w") as f:
+        json.dump(out, f)
     return out
 
 
@@ -117,7 +119,7 @@ def main():
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--dataset_path", type=str, required=True)
     parser.add_argument("--task", type=str, required=True, help="mobile|desktop|web|all")
-    parser.add_argument("--output", type=str, default=None)
+    parser.add_argument("--output", type=str, default="./output")
     args = parser.parse_args()
 
     if args.model.lower() == "qwen3vl":
@@ -125,7 +127,7 @@ def main():
     else:
         raise ValueError(f"Unknown model: {args.model}")
 
-    out = run(tester, args.dataset_path, args.task, args.output)
+    out = run(tester, args.model_path, args.dataset_path, args.task, args.output)
     logging.info("Tasks Result: %s", out["tasks_result"])
 
 
