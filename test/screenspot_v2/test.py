@@ -17,11 +17,11 @@ def main():
     args = parser.parse_args()
 
     if args.tester.lower() == "qwen3vl":
-        adapter = Qwen3VLTester(args.model_path)
+        tester = Qwen3VLTester(args.model_path)
     else:
         raise ValueError(f"Unknown tester: {args.tester}")
 
-    out = run(adapter, args.dataset_path, args.task, args.output)
+    out = run(tester, args.dataset_path, args.task, args.output)
     logging.info("Tasks Result: %s", out["tasks_result"])
 
 

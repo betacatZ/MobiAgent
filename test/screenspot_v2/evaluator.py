@@ -15,7 +15,7 @@ def _normalize_bbox(bbox: List[float], img_size: Tuple[int, int]) -> List[float]
     return [x / W, y / H, x2 / W, y2 / H]
 
 
-def evaluate(adapter, dataset_path: str, task: str) -> Dict:
+def evaluate(tester, dataset_path: str, task: str) -> Dict:
     tasks = ["mobile", "desktop", "web"] if task == "all" else [task]
 
     tasks_result: List[List[float]] = []
@@ -50,7 +50,7 @@ def evaluate(adapter, dataset_path: str, task: str) -> Dict:
             instruction = item["instruction"]
             bbox_norm = _normalize_bbox(item["bbox"], image.size)
 
-            click_point: Optional[Tuple[float, float]] = adapter.generate_click_coordinate(instruction, image)
+            click_point: Optional[Tuple[float, float]] = tester.generate_click_coordinate(instruction, image)
             if click_point is None:
                 num_wrong_format += 1
                 if item["data_type"] == "text":
@@ -99,8 +99,8 @@ def evaluate(adapter, dataset_path: str, task: str) -> Dict:
     return {"tasks_result": tasks_result, "results": results}
 
 
-def run(adapter, dataset_path: str, task: str, output: Optional[str] = None) -> Dict:
-    out = evaluate(adapter, dataset_path, task)
+def run(tester, dataset_path: str, task: str, output: Optional[str] = None) -> Dict:
+    out = evaluate(tester, dataset_path, task)
     if output:
         with open(output, "w") as f:
             json.dump(out, f)
