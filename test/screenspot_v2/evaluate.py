@@ -143,6 +143,10 @@ def main():
 
     if cfg["model"].lower() == "qwen3vl":
         tester = Qwen3VLTester(cfg["model_path"])
+    elif cfg["model"].lower() == "mobimind":
+        from tester.MobiMind_tester import MobiMindTester
+
+        tester = MobiMindTester(cfg["model_path"])
     else:
         raise ValueError(f"Unknown model: {cfg['model']}")
     exp_name = cfg.get("exp_name", "default_exp")
