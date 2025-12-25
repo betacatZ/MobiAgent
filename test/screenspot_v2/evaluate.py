@@ -144,8 +144,8 @@ def main():
         tester = Qwen3VLTester(cfg["model_path"])
     else:
         raise ValueError(f"Unknown model: {cfg['model']}")
-    model = os.path.basename(cfg["model_path"])
-    output_path = os.path.join(args.output, model)
+    exp_name = cfg.get("exp_name", "default_exp")
+    output_path = os.path.join(args.output, exp_name)
     run(tester, cfg["dataset_path"], cfg["task"], output_path)
 
     with open(os.path.join(output_path, "config.yaml"), "w") as f:
