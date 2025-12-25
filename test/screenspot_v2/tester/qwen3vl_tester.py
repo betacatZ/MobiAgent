@@ -91,7 +91,7 @@ class Qwen3VLTester(BaseTester):
 
         # self.guide_text = '<tool_call>\n{"name": "mobile_use", "arguments": {"action": "click", "coordinate": ['
 
-    def generate_click_coordinate(self, instruction: str, image: Image.Image) -> Optional[Tuple[float, float]]:
+    def generate_click_coordinate(self, instruction: str, image: Image.Image):
         messages = [
             {"role": "system", "content": [{"type": "text", "text": self.system_prompt}]},
             {
@@ -125,7 +125,7 @@ class Qwen3VLTester(BaseTester):
 
         coordinates = self._parse_output(response)
 
-        return coordinates
+        return coordinates, response
 
     def _parse_output(self, response: str) -> Optional[Tuple[float, float]]:
         try:

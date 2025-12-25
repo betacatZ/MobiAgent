@@ -59,7 +59,8 @@ def evaluate(tester, dataset_path: str, task: str) -> Tuple[Dict[str, float], Li
         instruction = item["instruction"]
         bbox_norm = _normalize_bbox(item["bbox"], image.size)
 
-        click_point: Optional[Tuple[float, float]] = tester.generate_click_coordinate(instruction, image)
+        click_point, response = tester.generate_click_coordinate(instruction, image)
+        correct = False
         if click_point is None:
             num_wrong_format += 1
             if item["data_type"] == "text":
@@ -67,41 +68,30 @@ def evaluate(tester, dataset_path: str, task: str) -> Tuple[Dict[str, float], Li
             else:
                 icon_correct.append(0)
             tqdm.write("Step: %s wrong format" % str(j))
-            results.append(
-                {
-                    "img_path": img_path,
-                    "text": instruction,
-                    "bbox": bbox_norm,
-                    "pred": None,
-                    "type": item["data_type"],
-                    "source": item["data_source"],
-                    "correct": False,
-                }
-            )
-            continue
-
-        x1, y1, x2, y2 = bbox_norm
-        correct = x1 <= click_point[0] <= x2 and y1 <= click_point[1] <= y2
-        if correct:
-            corr_action += 1
-            if item["data_type"] == "text":
-                text_correct.append(1)
-            else:
-                icon_correct.append(1)
-            tqdm.write("match %.6f" % (corr_action / max(num_action, 1)))
         else:
-            if item["data_type"] == "text":
-                text_correct.append(0)
+            x1, y1, x2, y2 = bbox_norm
+            correct = x1 <= click_point[0] <= x2 and y1 <= click_point[1] <= y2
+            if correct:
+                corr_action += 1
+                if item["data_type"] == "text":
+                    text_correct.append(1)
+                else:
+                    icon_correct.append(1)
+                tqdm.write("match %.6f" % (corr_action / max(num_action, 1)))
             else:
-                icon_correct.append(0)
-            tqdm.write("unmatch %.6f" % (corr_action / max(num_action, 1)))
+                if item["data_type"] == "text":
+                    text_correct.append(0)
+                else:
+                    icon_correct.append(0)
+                tqdm.write("unmatch %.6f" % (corr_action / max(num_action, 1)))
 
         results.append(
             {
                 "img_path": img_path,
                 "text": instruction,
                 "bbox": bbox_norm,
-                "pred": [click_point[0], click_point[1]],
+                "pred": click_point,
+                "respose": response,
                 "type": item["data_type"],
                 "source": item["data_source"],
                 "correct": correct,
