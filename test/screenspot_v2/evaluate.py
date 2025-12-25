@@ -67,6 +67,17 @@ def evaluate(tester, dataset_path: str, task: str) -> Tuple[Dict[str, float], Li
             else:
                 icon_correct.append(0)
             tqdm.write("Step: %s wrong format" % str(j))
+            results.append(
+                {
+                    "img_path": img_path,
+                    "text": instruction,
+                    "bbox": bbox_norm,
+                    "pred": None,
+                    "type": item["data_type"],
+                    "source": item["data_source"],
+                    "correct": False,
+                }
+            )
             continue
 
         x1, y1, x2, y2 = bbox_norm
