@@ -23,7 +23,7 @@ class Qwen3VLTester(BaseTester):
         self.processor = AutoProcessor.from_pretrained(model_path)
 
         generation_config = GenerationConfig.from_pretrained(model_path, trust_remote_code=True).to_dict()
-        generation_config.update(max_length=2048, do_sample=False, temperature=0.0)
+        generation_config.update(do_sample=False, temperature=0.0)
         self.model.generation_config = GenerationConfig(**generation_config)
 
         # self.system_prompt = (
@@ -89,7 +89,7 @@ class Qwen3VLTester(BaseTester):
         - Do not output anything else outside those three parts.
         """
 
-        self.guide_text = '<tool_call>\n{"name": "mobile_use", "arguments": {"action": "click", "coordinate": ['
+        # self.guide_text = '<tool_call>\n{"name": "mobile_use", "arguments": {"action": "click", "coordinate": ['
 
     def generate_click_coordinate(self, instruction: str, image: Image.Image) -> Optional[Tuple[float, float]]:
         messages = [
@@ -107,32 +107,41 @@ class Qwen3VLTester(BaseTester):
         ]
 
         text_input = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        text_input = text_input + self.guide_text
+        # text_input = text_input + self.guide_text
 
         inputs = self.processor(text=[text_input], images=[image], padding=True, return_tensors="pt").to(
             self.model.device
         )
 
-        generated_ids = self.model.generate(**inputs, max_new_tokens=128)
+        generated_ids = self.model.generate(**inputs, max_new_tokens=512)
         generated_ids_trimmed = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)]
         response = self.processor.batch_decode(
             generated_ids_trimmed, skip_special_tokens=False, clean_up_tokenization_spaces=False
         )[0]
-        response = self.guide_text + response
-        cut_index = response.rfind("}")
-        if cut_index != -1:
-            response = response[: cut_index + 1]
+        # response = self.guide_text + response
+        # cut_index = response.rfind("}")
+        # if cut_index != -1:
+        #     response = response[: cut_index + 1]
 
-        return self._parse_output(response)
+        coordinates = self._parse_output(response)
+
+        return coordinates
 
     def _parse_output(self, response: str) -> Optional[Tuple[float, float]]:
         try:
-            action_json = response.split("<tool_call>\n", 1)[1]
-            action = json.loads(action_json)
-            coordinates = action.get("arguments", {}).get("coordinate")
-            if isinstance(coordinates, list) and len(coordinates) == 2:
-                x, y = coordinates
-                return float(x) / 1000.0, float(y) / 1000.0
+            action = json.loads(response.split("<tool_call>\n")[1].split("\n</tool_call>")[0])
+            if action["arguments"]["action"] == "click":
+                coordinates = action["arguments"]["coordinate"]
+                coordinates = [round(coordinates[0] / 999), round(coordinates[1] / 999)]
+                if isinstance(coordinates, list) and len(coordinates) == 2:
+                    return tuple(coordinates)
+
+            # action_json = response.split("<tool_call>\n", 1)[1]
+            # action = json.loads(action_json)
+            # coordinates = action.get("arguments", {}).get("coordinate")
+            # if isinstance(coordinates, list) and len(coordinates) == 2:
+            #     x, y = coordinates
+            #     return float(x) / 1000.0, float(y) / 1000.0
         except Exception:
             return None
         return None
