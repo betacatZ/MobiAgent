@@ -132,7 +132,7 @@ class Qwen3VLTester(BaseTester):
             action = json.loads(response.split("<tool_call>\n")[1].split("\n</tool_call>")[0])
             if action["arguments"]["action"] == "click":
                 coordinates = action["arguments"]["coordinate"]
-                coordinates = [round(coordinates[0] / 999), round(coordinates[1] / 999)]
+                coordinates = [coordinates[0] / 999, coordinates[1] / 999]
                 if isinstance(coordinates, list) and len(coordinates) == 2:
                     return tuple(coordinates)
 
