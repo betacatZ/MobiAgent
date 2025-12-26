@@ -143,7 +143,7 @@ class MobiMindTester(BaseTester):
             decider_response = robust_json_loads(decider_response_str)
             reasoning = decider_response["reasoning"]
             target_element = decider_response["parameters"]["target_element"]
-        except KeyError:
+        except Exception:
             print("decider_response:", decider_response_str)
 
         try:
