@@ -131,7 +131,7 @@ class MobiMindTester(BaseTester):
         decider_inputs = self.processor(text=[decider_input], images=[image], padding=True, return_tensors="pt").to(
             self.decider.device
         )
-        generated_ids = self.decider.generate(**decider_inputs, max_new_tokens=256, temperature=0.0, top_p=1.0)
+        generated_ids = self.decider.generate(**decider_inputs, max_new_tokens=256, do_sample=False)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :] for in_ids, out_ids in zip(decider_inputs.input_ids, generated_ids)
         ]
@@ -164,7 +164,7 @@ class MobiMindTester(BaseTester):
         grounder_inputs = self.processor(text=[grounder_input], images=[image], padding=True, return_tensors="pt").to(
             self.grounder.device
         )
-        generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128, temperature=0.0, top_p=1.0)
+        generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128, do_sample=False)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :] for in_ids, out_ids in zip(grounder_inputs.input_ids, generated_ids)
         ]
