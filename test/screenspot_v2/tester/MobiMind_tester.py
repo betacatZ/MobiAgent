@@ -107,10 +107,11 @@ class MobiMindTester(BaseTester):
         {{"reasoning": "Your reasoning here", "action": "The next action (click)", "parameters": {{"param1": "value1", ...}}}}"""
         self.grounder_prompt = """
         <image>
-        Based on user's intent and the description of the target UI element, locate the element in the screenshot.
+        Based on the screenshot, user's intent and the description of the target UI element, provide the coordinates of the element using **absolute coordinates**.
         User's intent: {reasoning}
         Target element's description: {description}
-        Report the point coordinates in JSON format.
+        Your output should be a JSON object with the following format:
+        {{"coordinates": [x, y]}}
         """
 
     def generate_click_coordinate(self, instruction: str, image: Image.Image):
@@ -172,7 +173,10 @@ class MobiMindTester(BaseTester):
         return coordinates, grounder_response_str
 
     def _parse_output(self, response: str) -> Optional[Tuple[float, float]]:
-        grounder_response = parse_json_response(response)
-        coordinates = grounder_response["coordinates"]
-        coordinates = [coordinates[0] / 999, coordinates[1] / 999]
-        return tuple(coordinates)
+        try:
+            grounder_response = parse_json_response(response)
+            coordinates = grounder_response["coordinates"]
+            coordinates = [coordinates[0] / 999, coordinates[1] / 999]
+            return tuple(coordinates)
+        except Exception:
+            return None
