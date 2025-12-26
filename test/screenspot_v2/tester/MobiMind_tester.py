@@ -139,12 +139,12 @@ class MobiMindTester(BaseTester):
             generated_ids_trimmed, skip_special_tokens=False, clean_up_tokenization_spaces=False
         )[0]
 
-        decider_response = robust_json_loads(decider_response_str)
-        reasoning = decider_response["reasoning"]
         try:
+            decider_response = robust_json_loads(decider_response_str)
+            reasoning = decider_response["reasoning"]
             target_element = decider_response["parameters"]["target_element"]
         except KeyError:
-            print("decider_response:", decider_response)
+            print("decider_response:", decider_response_str)
 
         try:
             grounder_msg = [
@@ -179,7 +179,7 @@ class MobiMindTester(BaseTester):
         except Exception:
             coordinates = None
             grounder_response_str = None
-        return coordinates, {"decider_response": decider_response, "grounder_response": grounder_response_str}
+        return coordinates, {"decider_response": decider_response_str, "grounder_response": grounder_response_str}
 
     def _parse_output(self, response: str) -> Optional[Tuple[float, float]]:
         try:
