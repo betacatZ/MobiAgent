@@ -145,34 +145,41 @@ class MobiMindTester(BaseTester):
             target_element = decider_response["parameters"]["target_element"]
         except KeyError:
             print("decider_response:", decider_response)
-        grounder_msg = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": "data:image/png;base64," + convert_pil_image_to_base64(image)},
-                    },
-                    {
-                        "type": "text",
-                        "text": self.grounder_prompt.format(reasoning=reasoning, description=target_element),
-                    },
-                ],
-            }
-        ]
-        grounder_input = self.processor.apply_chat_template(grounder_msg, tokenize=False, add_generation_prompt=True)
-        grounder_inputs = self.processor(text=[grounder_input], images=[image], padding=True, return_tensors="pt").to(
-            self.grounder.device
-        )
-        generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128, do_sample=False)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids) :] for in_ids, out_ids in zip(grounder_inputs.input_ids, generated_ids)
-        ]
-        grounder_response_str = self.processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=False, clean_up_tokenization_spaces=False
-        )[0]
-        coordinates = self._parse_output(grounder_response_str)
-        return coordinates, grounder_response_str
+
+        try:
+            grounder_msg = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": "data:image/png;base64," + convert_pil_image_to_base64(image)},
+                        },
+                        {
+                            "type": "text",
+                            "text": self.grounder_prompt.format(reasoning=reasoning, description=target_element),
+                        },
+                    ],
+                }
+            ]
+            grounder_input = self.processor.apply_chat_template(
+                grounder_msg, tokenize=False, add_generation_prompt=True
+            )
+            grounder_inputs = self.processor(
+                text=[grounder_input], images=[image], padding=True, return_tensors="pt"
+            ).to(self.grounder.device)
+            generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128, do_sample=False)
+            generated_ids_trimmed = [
+                out_ids[len(in_ids) :] for in_ids, out_ids in zip(grounder_inputs.input_ids, generated_ids)
+            ]
+            grounder_response_str = self.processor.batch_decode(
+                generated_ids_trimmed, skip_special_tokens=False, clean_up_tokenization_spaces=False
+            )[0]
+            coordinates = self._parse_output(grounder_response_str)
+        except Exception:
+            coordinates = None
+            grounder_response_str = None
+        return coordinates, {"decider_response": decider_response, "grounder_response": grounder_response_str}
 
     def _parse_output(self, response: str) -> Optional[Tuple[float, float]]:
         try:
