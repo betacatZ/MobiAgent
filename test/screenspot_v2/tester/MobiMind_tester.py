@@ -131,7 +131,7 @@ class MobiMindTester(BaseTester):
         decider_inputs = self.processor(text=[decider_input], images=[image], padding=True, return_tensors="pt").to(
             self.decider.device
         )
-        generated_ids = self.decider.generate(**decider_inputs, max_new_tokens=256)
+        generated_ids = self.decider.generate(**decider_inputs, max_new_tokens=256, temperature=0.0, top_p=1.0)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :] for in_ids, out_ids in zip(decider_inputs.input_ids, generated_ids)
         ]
@@ -141,7 +141,10 @@ class MobiMindTester(BaseTester):
 
         decider_response = robust_json_loads(decider_response_str)
         reasoning = decider_response["reasoning"]
-        target_element = decider_response["parameters"]["target_element"]
+        try:
+            target_element = decider_response["parameters"]["target_element"]
+        except KeyError:
+            print("decider_response:", decider_response)
         grounder_msg = [
             {
                 "role": "user",
@@ -161,7 +164,7 @@ class MobiMindTester(BaseTester):
         grounder_inputs = self.processor(text=[grounder_input], images=[image], padding=True, return_tensors="pt").to(
             self.grounder.device
         )
-        generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128)
+        generated_ids = self.grounder.generate(**grounder_inputs, max_new_tokens=128, temperature=0.0, top_p=1.0)
         generated_ids_trimmed = [
             out_ids[len(in_ids) :] for in_ids, out_ids in zip(grounder_inputs.input_ids, generated_ids)
         ]
@@ -179,7 +182,7 @@ class MobiMindTester(BaseTester):
                 if key.lower() in ["bbox", "bbox_2d", "bbox-2d", "bbox_2D", "bbox2d", "bbox_2009"]:
                     bbox = grounder_response[key]
                     break
-            coordinates = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2] # type: ignore
+            coordinates = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]  # type: ignore
             coordinates = [coordinates[0] / 999, coordinates[1] / 999]
             return tuple(coordinates)
         except Exception:
